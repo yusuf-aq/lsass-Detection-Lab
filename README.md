@@ -1,11 +1,10 @@
-
 # Cyber Defense Lab: SIEM Deployment & Detection Engineering
 
 ## Quick Stats
 - **SIEM:** Wazuh v4.x
 - **Endpoint:** Windows 10 + Sysmon
-- **Attack Techniques:** 2 (T1003.001 - ProcDump & comsvcs.dll)
-- **Custom Rules:** 1 (Rule 100003 - Level 12 CRITICAL)
+- **Attack Techniques:** 1 technique, 2 atomic tests (T1003.001 - ProcDump & comsvcs.dll)
+- **Custom Rules:** 1 (Rule 100003, Level 12 high severity)
 - **MITRE Mapping:** T1003.001 (Credential Dumping)
 
 ---
@@ -59,7 +58,7 @@ C:\Windows\Sysmon.exe -c C:\Windows\sysmonconfig.xml
 /var/ossec/etc/rules/local_rules.xml
 ```
 
-- Configured **Level 12 (CRITICAL)** severity alerts
+- Configured **Level 12 (high severity)** alerts
 - Mapped detection logic directly to **MITRE ATT&CK T1003.001**
 - Added a SOC-focused alert description identifying the source process responsible for LSASS access
 - Configured the rule with `no_full_log` to control alert output
@@ -75,6 +74,29 @@ C:\Windows\Sysmon.exe -c C:\Windows\sysmonconfig.xml
   </mitre>
   <options>no_full_log</options>
 </rule>
+```
+
+- Sigma rule used as the source for the Wazuh rule (`lsass_dump.yml`):
+
+```yaml
+title: LSASS Memory Access via Suspicious Tool
+id: 3f6c2b7e-5a1d-4c8e-9b2a-7d4e1f0a9c35
+status: experimental
+description: Detects process access requests targeting LSASS memory space commonly associated with credential dumping.
+author: Yusuf Qaedi
+references:
+  - https://attack.mitre.org/techniques/T1003/001/
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection:
+    EventID: 10
+    TargetImage|endswith: '\lsass.exe'
+  condition: selection
+falsepositives:
+  - Legitimate security agents or antivirus software
+level: high
 ```
 
 ### Attack Simulation & Validation
@@ -99,7 +121,7 @@ Invoke-AtomicTest T1003.001 -TestNumbers 2
   - Missing prerequisite binaries such as **`procdump.exe`**
 - Tuned Sysmon configuration and staged missing prerequisites to restore complete attack telemetry
 - Verified real-time telemetry capture for **`procdump64.exe`** and **`rundll32.exe`** targeting LSASS memory space
-- Validated real-time **Level 12 CRITICAL** alerts on the Wazuh dashboard
+- Validated real-time **Level 12 high-severity** alerts on the Wazuh dashboard
 - Built custom visualization for LSASS access monitoring
 
 ---
@@ -108,7 +130,7 @@ Invoke-AtomicTest T1003.001 -TestNumbers 2
 
 ### Active Alert Stream & Histogram
 - Verified active alert aggregation and real-time detection hits for **custom Wazuh Rule 100003**
-- Confirmed repeated LSASS access events were being detected and escalated as critical alerts
+- Confirmed repeated LSASS access events were being detected and escalated as high-severity alerts
 
 ### Expanded Telemetry Payload
 - Verified detailed Sysmon **ProcessAccess Event ID 10** telemetry
@@ -125,8 +147,6 @@ Invoke-AtomicTest T1003.001 -TestNumbers 2
 
 ---
 
-
-
 ## Screenshots: Verification & Detection Evidence
 
 | Alert Stream & Timeline (`4.png`) | Expanded Telemetry Payload (`3.png`) | Process Access Distribution (`5.png`) |
@@ -134,31 +154,32 @@ Invoke-AtomicTest T1003.001 -TestNumbers 2
 | ![Alert Stream & Timeline](4.png) | ![Expanded Telemetry Payload](3.png) | ![Process Access Distribution](5.png) |
 
 ---
----
 
 ## Tools & Skills Demonstrated
 
 - **SIEM:** Wazuh deployment, rule writing, dashboard creation
 - **Endpoint Security:** Sysmon configuration and telemetry tuning
-- **Threat Intelligence:** MITRE ATT&CK framework (T1003.001)
+- **MITRE ATT&CK mapping:** Technique mapping and coverage (T1003.001)
 - **Adversary Emulation:** Atomic Red Team, `Invoke-AtomicRedTeam`
 - **Detection Engineering:** Sigma (YAML), Wazuh XML
 - **Virtualization:** Oracle VirtualBox
 - **Operating Systems:** Windows 10, Linux (administration)
-- **Incident Response:** Alert validation, forensic analysis
+- **Incident Response:** Alert validation, alert triage
 - **Security Monitoring:** Real-time endpoint telemetry collection and alert validation
 - **Detection Validation:** Attack simulation, telemetry verification, and custom rule testing
 
 ---
 
+## Limitations & Next Steps
+In a production environment, deploying this rule as-is would likely generate a lot of false positives and noise, because several legitimate system processes regularly access LSASS for authentication tasks. To prevent alert fatigue, my next step would be to tune the rule by filtering specific Granted Access masks to isolate suspicious behavior, and then establish a baseline to build a robust allowlist for authorized corporate applications.
+
 ## Conclusion & Impact
 Successfully established a complete threat detection pipeline from endpoint telemetry collection to SIEM alert generation.
 
-The laboratory demonstrates that custom Sysmon telemetry configuration combined with tailored Wazuh detection logic can reliably identify and escalate suspicious LSASS memory access associated with credential theft attempts in real time.
+The laboratory demonstrates that custom Sysmon telemetry configuration combined with tailored Wazuh detection logic can detect and escalate suspicious LSASS memory access, as validated against two simulated credential dumping tests (ProcDump and comsvcs.dll).
 
 The project also demonstrates practical detection engineering skills through adversary emulation, troubleshooting telemetry gaps, MITRE ATT&CK mapping, Sigma rule development, Wazuh rule creation, and validation of detections against simulated attack activity.
 
 ---
 
 **Skills:** SIEM, Wazuh, Sysmon, MITRE ATT&CK, Threat Detection, Incident Response, Windows Security, Log Analysis, Sigma, YAML, XML, Atomic Red Team, Adversary Emulation, VirtualBox, PowerShell, Linux Administration
-
